@@ -9,6 +9,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -32,6 +33,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 //https://developer.android.com/training/camera/photobasics?hl=es-419#java
 
@@ -42,12 +49,22 @@ public class MainActivity extends AppCompatActivity{
     ArrayList<String> COPYstringArrayList = new ArrayList<String>();
     ArrayAdapter<String> stringArrayAdapter;
     ListView ltsproducto;
+    detectarInternet di;
+    ConexionCouch uc;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        di = new detectarInternet(getApplicationContext());
+        if( di.hayConexionInternet() ) {
+            conexionServidor objObtenerAmigos = new conexionServidor();
+            objObtenerAmigos.execute(uc.url_consulta, "GET");
+        } else {
+            Toast.makeText(getApplicationContext(), "No hay conexion a internet.", Toast.LENGTH_LONG).show();
+        }
 
         FloatingActionButton btnAgregarProductos = (FloatingActionButton)findViewById(R.id.btnAgregarProductos);
         btnAgregarProductos.setOnClickListener(new View.OnClickListener() {
@@ -118,7 +135,7 @@ public class MainActivity extends AppCompatActivity{
                         misproductos.getString(4), //Marca
                         misproductos.getString(5) //precio
                 };
-                agregarProducto("modificar", dataProducto);
+                agregarProducto("Modificar", dataProducto);
                 return true;
             case R.id.mnxEliminar:
                 androidx.appcompat.app.AlertDialog eliminarProduct =  eliminarProducto();
@@ -126,8 +143,10 @@ public class MainActivity extends AppCompatActivity{
 
 
             default:
+
                 return super.onContextItemSelected(item);
         }
+
     }
     androidx.appcompat.app.AlertDialog eliminarProducto() {
         androidx.appcompat.app.AlertDialog.Builder confirmacion = new AlertDialog.Builder(MainActivity.this);
@@ -136,7 +155,7 @@ public class MainActivity extends AppCompatActivity{
         confirmacion.setPositiveButton("si", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                miBD.mantenimientoProducto("eliminar", new String[]{misproductos.getString(0)});
+                miBD.mantenimientoProducto("Eliminar", new String[]{misproductos.getString(0)});
                 obtenerDatosProductos();
                 Toast.makeText(getApplicationContext(), "Datos eliminados con exito", Toast.LENGTH_SHORT).show();
                 dialogInterface.dismiss();
@@ -151,6 +170,7 @@ public class MainActivity extends AppCompatActivity{
         });
         return confirmacion.create();
     }
+
 
     void obtenerDatosProductos(){
         miBD = new DB(getApplicationContext(), "", null, 1);
@@ -184,6 +204,32 @@ public class MainActivity extends AppCompatActivity{
         stringArrayAdapter.notifyDataSetChanged();
         registerForContextMenu(ltsproducto);
 
+    }
+    private class conexionServidor extends AsyncTask<String,String, String> {
+        HttpURLConnection urlConnection;
+
+        @Override
+        protected String doInBackground(String... parametros) {
+            StringBuilder result = new StringBuilder();
+            try {
+                String uri = parametros[0];
+                String metodo = parametros[1];
+
+                URL url = new URL(uri);
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod(metodo);
+
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                String linea;
+                while ((linea = reader.readLine()) != null) {
+                    result.append(linea);
+                }
+            } catch (Exception ex) {
+                //
+            }
+            return result.toString();
+        }
     }
 }
 
